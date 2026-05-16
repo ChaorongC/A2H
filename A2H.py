@@ -93,6 +93,7 @@ parser.add_argument(
     "--verbose",
     action="store",
     dest="verbose",
+    type=int,
     help="Print A2H transformation progress.",
     default=1,
 )
@@ -134,7 +135,7 @@ print(
 
 def chalm_transform(x):
     feature = x[0]
-    coef = allProbe_result[allProbe_result.featureID == feature].values[0][1]
+    coef = chalm_coef_by_feature[feature]
     if isinstance(coef, (int, float)):
         return np.array([coef] * (len(x) - 1))
     else:
@@ -142,7 +143,7 @@ def chalm_transform(x):
 
 def camda_transform(x):
     feature = x[0]
-    coef = allProbe_result[allProbe_result.featureID == feature].values[0][2]
+    coef = camda_coef_by_feature[feature]
     if isinstance(coef, (int, float)):
         return np.array([coef] * (len(x) - 1))
     else:
@@ -189,7 +190,7 @@ print(
 )
 
 
-if args.filter:
+if args.filter is not None:
     args.cl = True
     print(
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -219,7 +220,47 @@ print(
     "Reading coefficient file %s" % args.coef,
 )
 
-allProbe_result = pd.read_pickle(args.coef)
+try:
+    allProbe_result = pd.read_pickle(args.coef)
+except ModuleNotFoundError as exc:
+    print(
+        "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Error: reading coefficient file failed because Python module '%s' is not installed."
+        % exc.name,
+    )
+    sys.exit(1)
+
+if "featureID" not in allProbe_result.columns:
+    print(
+        "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Error: coefficient file must contain featureID column.",
+    )
+    sys.exit(1)
+
+allProbe_result = allProbe_result.drop_duplicates(subset="featureID", keep="first")
+
+chalm_coef_column = "chalm_coef" if "chalm_coef" in allProbe_result.columns else "coef"
+if chalm_coef_column not in allProbe_result.columns:
+    print(
+        "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Error: coefficient file must contain chalm_coef or coef column for CHALM output.",
+    )
+    sys.exit(1)
+
+chalm_coef_by_feature = allProbe_result.set_index("featureID")[chalm_coef_column].to_dict()
+
+camda_coef_by_feature = None
+if args.camda:
+    camda_coef_column = "camda_coef" if "camda_coef" in allProbe_result.columns else None
+    if camda_coef_column is None and len(allProbe_result.columns) >= 3:
+        camda_coef_column = allProbe_result.columns[2]
+    if camda_coef_column not in allProbe_result.columns:
+        print(
+            "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Error: --camda requires CAMDA coefficients, but this coefficient file only contains CHALM coefficients.",
+        )
+        sys.exit(1)
+    camda_coef_by_feature = allProbe_result.set_index("featureID")[camda_coef_column].to_dict()
 
 
 print(
@@ -312,7 +353,7 @@ if args.cl:
     )
 
 # filter output based on confidence level for each cpg
-if args.filter:
+if args.filter is not None:
     print(
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "Filtering output based on confidence level assigned: %s" % args.filter,
