@@ -8,9 +8,6 @@ Environment requirement:
     - joblib
     - pyarrow
 
-Recommended local Python:
-    /dfs8/weil21-lab/chaoronc/envs/py313_dfs8/bin/python
-
 Note:
     The bundled A2H_coef.pkl contains CHALM and CAMDA coefficients in
     columns chalm_coef and camda_coef. The current pickle requires pyarrow
@@ -55,7 +52,7 @@ Input:
     test_methylation.tsv
 
 Command:
-    /dfs8/weil21-lab/chaoronc/envs/py313_dfs8/bin/python A2H.py \
+    python A2H.py \
         -i test_methylation.tsv \
         -o output \
         --prefix A2H_test \
@@ -88,7 +85,7 @@ numerically because they use different coefficient columns.
 Additional Examples
 
 1. Run CHALM only:
-    /dfs8/weil21-lab/chaoronc/envs/py313_dfs8/bin/python A2H.py \
+    python A2H.py \
         -i test_methylation.tsv \
         -o output \
         --prefix A2H_chalm_only \
@@ -97,7 +94,7 @@ Additional Examples
         --chalm
 
 2. Run CAMDA only:
-    /dfs8/weil21-lab/chaoronc/envs/py313_dfs8/bin/python A2H.py \
+    python A2H.py \
         -i test_methylation.tsv \
         -o output \
         --prefix A2H_camda_only \
@@ -106,7 +103,7 @@ Additional Examples
         --camda
 
 3. Output probe IDs instead of CpG loci:
-    /dfs8/weil21-lab/chaoronc/envs/py313_dfs8/bin/python A2H.py \
+    python A2H.py \
         -i test_methylation.tsv \
         -o output \
         --prefix A2H_probe_index \
@@ -116,7 +113,7 @@ Additional Examples
         --probe
 
 4. Filter by confidence level and replace filtered values with -1:
-    /dfs8/weil21-lab/chaoronc/envs/py313_dfs8/bin/python A2H.py \
+    python A2H.py \
         -i test_methylation.tsv \
         -o output \
         --prefix A2H_filter_replace \
