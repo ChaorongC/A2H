@@ -127,6 +127,9 @@ The locus ID format used throughout is `chr<N>_<position>`: the hg38 chromosome
 and the 1-based position of the CpG cytosine on the forward strand (for example,
 `chr10_100006425` for `cg03877640`).
 
+The code that trains the model and builds these files from the reference WGBS
+atlas is in [`reproducibility/`](reproducibility/README.md).
+
 ### `A2H_coef.npz`
 
 NumPy archive (`numpy.load`) of the per-CpG polynomial coefficients. It covers
