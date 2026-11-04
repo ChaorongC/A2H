@@ -20,7 +20,7 @@ usage: A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
               [--cpg-info CPG_INFO_PATH] [-t THREAD] [--ref {hg38,hg19}]
               [--beadchip {450k,EPIC,HM450,850k}] [--cl] [--probe]
               [--verbose VERBOSE] [--chalm] [--camda] [--filter FILTER]
-              [--replace REPLACE]
+              [--exclude-constant] [--replace REPLACE]
 
 options:
   -h, --help            show this help message and exit
@@ -42,6 +42,8 @@ options:
   --camda               Output CAMDA.
   --filter FILTER       Minimum confidence level to keep transformed values.
                         If assigned, this also enables --cl.
+  --exclude-constant    Drop the 501 constant-input CpGs listed in
+                        A2H_constant_cpgs.tsv from all outputs.
   --replace REPLACE     If assigned, replace filtered and missing values with
                         this value. Otherwise, filtered values are NaNs.
 

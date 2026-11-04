@@ -25,7 +25,7 @@ A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
        [--cpg-info CPG_INFO_PATH] [-t THREAD] [--ref {hg38,hg19}]
        [--beadchip {450k,EPIC,HM450,850k}] [--cl] [--probe]
        [--verbose VERBOSE] [--chalm] [--camda] [--filter FILTER]
-       [--replace REPLACE]
+       [--exclude-constant] [--replace REPLACE]
 ```
 
 | Option | Description |
@@ -44,6 +44,7 @@ A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
 | `--chalm` | Output CHALM. |
 | `--camda` | Output CAMDA. |
 | `--filter FILTER` | Minimum confidence level to keep transformed values. Also enables `--cl`. |
+| `--exclude-constant` | Drop the 501 constant-input CpGs listed in `A2H_constant_cpgs.tsv` from all outputs. |
 | `--replace REPLACE` | Replace filtered and missing values with this value. By default filtered values are `NaN`. |
 
 ## Bundled Test Use Case
@@ -139,6 +140,31 @@ python A2H.py \
     --filter 0.1 \
     --replace -1
 ```
+
+Drop the constant-input CpGs from all outputs:
+
+```bash
+python A2H.py \
+    -i test_methylation.tsv \
+    -o output \
+    --prefix A2H_exclude_constant \
+    --ref hg38 \
+    --beadchip EPIC \
+    --chalm \
+    --camda \
+    --exclude-constant
+```
+
+## Constant-Input CpGs
+
+`A2H_constant_cpgs.tsv` lists 501 CpGs (hg38 loci) where array beta was
+identical in every reference sample with a matching WGBS measurement (50-205
+samples per CpG; column `n_reference_samples`). No polynomial can be fitted at
+these CpGs, so A2H returns a single KDE-derived constant whatever the input
+beta: CHALM is 0 at 500 CpGs and 1 at 1 CpG, and CAMDA is 0 at all 501. The
+file also gives the HM450, EPIC and EPIC v2 probe IDs for each CpG. With
+`--exclude-constant`, these CpGs are removed from the CHALM, CAMDA, confidence
+and filtered outputs. By default they are kept.
 
 ## Input Format
 

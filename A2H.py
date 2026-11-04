@@ -122,6 +122,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--exclude-constant",
+    action="store_true",
+    dest="exclude_constant",
+    help="Drop the 501 constant-input CpGs (KDE-fallback sites listed in A2H_constant_cpgs.tsv) from all outputs.",
+)
+
+parser.add_argument(
     "--replace",
     action="store",
     dest="replace",
@@ -287,6 +294,20 @@ if args.probe:
     methylation_probeid = methylation_input.iloc[:, 0].copy().values
 
 methylation_input.iloc[:, 0] = cpg_probe_info.loc[methylation_input.iloc[:, 0]].values
+
+if args.exclude_constant:
+    constant_loci = pd.read_table(
+        os.path.dirname(os.path.realpath(__file__)) + "/A2H_constant_cpgs.tsv",
+        usecols=["locus"],
+    )["locus"]
+    keep = ~methylation_input.iloc[:, 0].isin(constant_loci).values
+    if args.probe:
+        methylation_probeid = methylation_probeid[keep]
+    methylation_input = methylation_input[keep]
+    print(
+        "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Excluded %d constant-input CpGs." % (~keep).sum(),
+    )
 
 print(
     "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
