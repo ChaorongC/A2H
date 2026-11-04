@@ -1,0 +1,29 @@
+#!/bin/bash
+# E2 in EPIC-window mode: subsample the native's EPIC-window extract, per-contig parallel calls.
+# Only EPIC rows of the outputs are valid (validated against full-genome conditions; see results README).
+#SBATCH --job-name=r2_2_e2w
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=32G
+#SBATCH --time=1-00:00:00
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+module load samtools/1.15.1
+MANIFEST=${MANIFEST:-results/r2_2_e2e3_20261015/manifests/e2_window_manifest.tsv}
+ROOT=work/r2_2_e2e3_20261015
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "$MANIFEST"); test -n "$row"
+IFS=$'\t' read -r task sample seed depth native_dir window_dir out_dir _e2task <<< "$row"
+py310=python
+"$py310" -m src.r2_2_e2_downsample --sample-id "$sample" --native-dir "$native_dir" --window-dir "$window_dir" \
+    --out-dir "$out_dir" --seed "$seed" --target-depth "$depth" \
+    --epic-mapping results/r2_2_sensitivity_20261011/E1/epic_mapping.tsv \
+    --samtools "$(command -v samtools)" --threads "$((SLURM_CPUS_PER_TASK - 1))" \
+    --reference reference/hg38.fa \
+    --chalm-py tools/CHALM/src/CHALM.py \
+    --samtools-dir tools/samtools-0.1.19 \
+    --python-executable "$py310" --min-depth 4 \
+    --call-processes "$((SLURM_CPUS_PER_TASK - 1))" --contig-fasta-dir "$ROOT/reference/hg38_by_contig"

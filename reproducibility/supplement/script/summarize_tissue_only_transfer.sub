@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job-name=a2h_tissue_summary
+#SBATCH -p standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=24G
+#SBATCH --time=04:00:00
+#SBATCH --chdir=.
+#SBATCH --output=results/tissue_only_r1_5_r1_6_20261008/log/%x_%j.out
+#SBATCH --error=results/tissue_only_r1_5_r1_6_20261008/log/%x_%j.err
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+export MPLCONFIGDIR="${SLURM_TMPDIR:-/tmp}/a2h_mpl_${SLURM_JOB_ID}"
+export XDG_CACHE_HOME="${SLURM_TMPDIR:-/tmp}/a2h_cache_${SLURM_JOB_ID}"
+python -u -m src.summarize_tissue_only_transfer

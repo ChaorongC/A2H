@@ -1,0 +1,66 @@
+#!/bin/bash
+# Native E2 processing for the remaining 38 frozen group representatives.
+# FIRST_SAMPLE (r2_2_e2_native_first.sub) is already running as the first reproducibility/resource pilot.
+# Each task uses the same historical trimming, BSMAP and CHALM commands.
+# Depth perturbations remain gated on native-call validation.
+#SBATCH --job-name=r2_2_e2_native38
+#SBATCH --partition=hugemem
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=256G
+#SBATCH --time=7-00:00:00
+#SBATCH --array=0-37
+#SBATCH --output=work/r2_2_bsmap_depth_length_20261011/log/%x.%A_%a.out
+#SBATCH --error=work/r2_2_bsmap_depth_length_20261011/log/%x.%A_%a.err
+
+set -euo pipefail
+module load trimgalore/0.6.7 samtools/1.10
+
+source_dir="./src"
+manifest="./results/r2_2_sensitivity_20261011/E2_E3_access/selection_39_groups/E2_E3_sample_selection.tsv"
+root=work/r2_2_bsmap_depth_length_20261011
+ref=reference/hg38.fa
+bsmap=bsmap
+chalm=tools/CHALM/src/CHALM.py
+py310=python
+old_sam=tools/samtools-0.1.19
+
+mapfile -t samples < <(awk -F '\t' -v first="${FIRST_SAMPLE:?Set FIRST_SAMPLE}" 'NR > 1 && $10 == "yes" && $1 != first {print $1}' "$manifest")
+test "${#samples[@]}" -eq 38
+test "${SLURM_ARRAY_TASK_ID:-}" -ge 0
+test "$SLURM_ARRAY_TASK_ID" -lt "${#samples[@]}"
+sample="${samples[$SLURM_ARRAY_TASK_ID]}"
+work="$root/native_$sample"
+
+test ! -e "$work"
+test "$(df --output=avail -B1 work | tail -n 1)" -gt 1099511627776
+
+python "$source_dir/r2_2_prepare_native_reads.py" --sample-id "$sample" --out "$work"
+gzip -t "$work/${sample}_R1.fastq.gz" "$work/${sample}_R2.fastq.gz"
+mkdir -p "$work/trim"
+trim_galore --paired --2colour 20 --clip_R1 10 --clip_R2 20 \
+    --three_prime_clip_R1 10 --three_prime_clip_R2 10 --cores 32 \
+    --output_dir "$work/trim" \
+    "$work/${sample}_R1.fastq.gz" "$work/${sample}_R2.fastq.gz"
+
+mapfile -t read1 < <(find "$work/trim" -maxdepth 1 -name '*_val_1.fq.gz' -print)
+mapfile -t read2 < <(find "$work/trim" -maxdepth 1 -name '*_val_2.fq.gz' -print)
+test "${#read1[@]}" -eq 1 && test "${#read2[@]}" -eq 1
+
+"$bsmap" -a "${read1[0]}" -b "${read2[0]}" -d "$ref" -R \
+    -o "$work/unsorted.bam" -p 32
+samtools view -F 268 -b "$work/unsorted.bam" > "$work/mapped.bam"
+samtools sort -@ 32 -o "$work/sorted.bam" "$work/mapped.bam"
+samtools index -@ 32 "$work/sorted.bam"
+samtools quickcheck -v "$work/sorted.bam"
+
+"$py310" "$chalm" trad -d "$ref" -x CG -i no-action -m 4 -p -r -u -g -q \
+    -s "$old_sam" -o "$work/methRatio.txt" "$work/sorted.bam"
+"$py310" "$chalm" trad -d "$ref" -x CG -i no-action -m 4 -p -r -u -g -q -l 1 \
+    -s "$old_sam" -o "$work/CHALM.txt" "$work/sorted.bam"
+
+test -s "$work/methRatio.txt" && test -s "$work/CHALM.txt"
+samtools flagstat "$work/sorted.bam" > "$work/flagstat.txt"
+sha256sum "$work/methRatio.txt" "$work/CHALM.txt" > "$work/call_sha256.txt"
+printf 'sample_id\tarray_task\tstatus\n%s\t%s\tcompleted_native_calls\n' "$sample" "$SLURM_ARRAY_TASK_ID" > "$work/completion.tsv"

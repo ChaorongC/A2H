@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -p standard
+#SBATCH -n 1
+#SBATCH -c 2
+#SBATCH --mem=24G
+#SBATCH -t 04:00:00
+#SBATCH --chdir=.
+#SBATCH -o results/r3_11_raw_matrices_log_20261020/%x.%A_%a.out
+#SBATCH -e results/r3_11_raw_matrices_log_20261020/%x.%A_%a.err
+# ACTION=depth (array 0-9, one PGP-UK sample each) or ACTION=assemble (single task).
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export MPLCONFIGDIR=${TMPDIR:-/tmp}/mpl XDG_CACHE_HOME=${TMPDIR:-/tmp}/cache
+PY=python
+if [[ "$ACTION" == depth ]]; then $PY -m src.r3_11_raw_matrices depth --index "$SLURM_ARRAY_TASK_ID"; else $PY -m src.r3_11_raw_matrices assemble; fi

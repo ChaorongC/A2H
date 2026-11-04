@@ -1,0 +1,33 @@
+#!/bin/bash
+# E2 production: one array task = one (sample, seed, target depth) row of MANIFEST.
+# The runner refuses incomplete natives and non-empty output directories.
+#SBATCH --job-name=r2_2_e2
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=60G
+#SBATCH --time=2-00:00:00
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+module load samtools/1.15.1
+
+MANIFEST=${MANIFEST:?set MANIFEST}
+ROOT=${ROOT:-work/r2_2_e2e3_20261015}
+NATIVE_ROOT=work/r2_2_recovery_20261012
+py310=python
+
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "$MANIFEST")
+test -n "$row"
+IFS=$'\t' read -r task sample seed depth <<< "$row"
+
+"$py310" -m src.r2_2_e2_downsample --sample-id "$sample" --native-dir "$NATIVE_ROOT/native_$sample" \
+    --out-dir "$ROOT/e2/$sample/seed${seed}_depth${depth}" --seed "$seed" --target-depth "$depth" \
+    --epic-mapping results/r2_2_sensitivity_20261011/E1/epic_mapping.tsv \
+    --samtools "$(command -v samtools)" --threads "$((SLURM_CPUS_PER_TASK - 1))" \
+    --reference reference/hg38.fa \
+    --chalm-py tools/CHALM/src/CHALM.py \
+    --samtools-dir tools/samtools-0.1.19 \
+    --python-executable "$py310" --min-depth 4 --parallel-callers

@@ -1,0 +1,34 @@
+#!/bin/bash
+# Resume stuck native recoveries from their validated mapped.bam (2026-10-15).
+# Same runner and commands as r2_2_e2_recovery_dfs3b.sub, except:
+#   samtools sort -m 3500M x 11 threads, temp files on node-local $TMPDIR (--tmp=400G); sort is stable, so record order is unchanged)
+#   both CHALM.py trad calls run per contig in parallel and are joined in CHALM.py's sorted() contig order.
+# Writes a new namespace; the original native_<sample> directories are only read.
+#SBATCH --job-name=r2_2_native_resort
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=72G
+#SBATCH --time=1-00:00:00
+#SBATCH --tmp=400G
+# 72G / 12 CPUs = 6G per CPU: at the partition MaxMemPerCPU, so Slurm does not add CPUs (and sort threads).
+#SBATCH --output=work/r2_2_recovery_resort_20261015/log/%x.%A_%a.out
+#SBATCH --error=work/r2_2_recovery_resort_20261015/log/%x.%A_%a.err
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+module load samtools/1.10
+review=.
+manifest=${RESORT_MANIFEST:-$review/results/r2_2_sensitivity_20261011/recovery_resort_20261015/resort_manifest.tsv}
+contigs=work/r2_2_e2e3_20261015/reference/hg38_by_contig
+
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "$manifest")
+test -n "$row"
+IFS=$'\t' read -r task sample original_dir source_bam source_bytes source_mtime_ns out_dir _cancelled _bytes <<< "$row"
+
+python "$review/src/r2_2_recover_native.py" \
+    --sample-id "$sample" --mode mapped --original-dir "$original_dir" --source-bam "$source_bam" \
+    --out-dir "$out_dir" --expected-bytes "$source_bytes" --expected-mtime-ns "$source_mtime_ns" \
+    --samtools "$(command -v samtools)" --threads "$SLURM_CPUS_PER_TASK" --sort-memory "${SORT_MEMORY:-3500M}" --sort-tmp-dir "${TMPDIR:?}" \
+    --call-processes "${CALL_PROCESSES:-$SLURM_CPUS_PER_TASK}" --contig-fasta-dir "$contigs"

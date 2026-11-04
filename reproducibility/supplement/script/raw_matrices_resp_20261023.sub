@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -p standard
+#SBATCH -n 1
+#SBATCH -c 2
+#SBATCH --mem=12G
+#SBATCH -t 08:00:00
+#SBATCH --chdir=.
+#SBATCH -o results/raw_matrices_resp_log_20261023/%x.%A_%a.out
+#SBATCH -e results/raw_matrices_resp_log_20261023/%x.%A_%a.err
+# ACTION = cohort (0-1) | e1 (0-59) | refit39 (0-12) | e3pg | atlas39_calls (0-13) | atlas39_ldo (0-1)
+#          | atlas205_truth (0-2) | oof (0-19) | extra | check (0-3) | assemble (0-3: Resp 1.5, 1.6, 2.3, 2.4); index = SLURM_ARRAY_TASK_ID.
+# Memory per action is set at submission (--mem, -c = mem/6G on standard).
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export MPLCONFIGDIR=${TMPDIR:-/tmp}/mpl XDG_CACHE_HOME=${TMPDIR:-/tmp}/cache
+PY=python
+$PY -m src.raw_matrices_resp_20261023 "$ACTION" --index "${SLURM_ARRAY_TASK_ID:-0}"

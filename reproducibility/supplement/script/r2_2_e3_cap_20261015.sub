@@ -1,0 +1,34 @@
+#!/bin/bash
+# E3 (atlas) and option C (PGP-UK) production: one array task = one MANIFEST row
+# (sample, raw* condition, source BAM, caller). Atlas rows require a complete
+# native baseline; the masked BAM is deleted after both calls succeed.
+#SBATCH --job-name=r2_2_e3
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=60G
+#SBATCH --time=3-00:00:00
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+module load samtools/1.15.1
+
+MANIFEST=${MANIFEST:?set MANIFEST}
+py310=python
+
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "$MANIFEST")
+test -n "$row"
+IFS=$'\t' read -r task sample condition source_bam out_dir chalm_py caller_py samtools_dir native_dir <<< "$row"
+
+if [[ "$native_dir" != NA ]]; then
+    "$py310" -c "import json,sys; m=json.load(open(sys.argv[1])); assert m['state']=='native_calls_complete_unverified_archive' and m['sample_id']==sys.argv[2], m['state']" \
+        "$native_dir/recovery_metadata.json" "$sample"
+fi
+
+"$py310" src/r2_2_e3_aligned_call_cap.py --sample-id "$sample" --condition "$condition" \
+    --source-bam "$source_bam" --out-dir "$out_dir" --skip-camda-table --remove-derived-bam \
+    --processes "${PROCESSES:-8}" --samtools "$(command -v samtools)" ${PARALLEL_CALLERS:+--parallel-callers} \
+    --reference reference/hg38.fa \
+    --chalm-py "$chalm_py" --samtools-dir "$samtools_dir" --python-executable "$caller_py" --min-depth 4

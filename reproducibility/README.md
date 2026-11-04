@@ -12,8 +12,10 @@ The model is trained on the 205 whole-genome bisulfite sequencing (WGBS)
 samples of the human methylome atlas (Loyfer et al., *Nature* 613, 355-364,
 2023, [doi:10.1038/s41586-022-05580-6](https://doi.org/10.1038/s41586-022-05580-6)).
 The raw sequencing data are available under controlled access from the European
-Genome-phenome Archive (EGA), as described in that publication. The samples are
-listed in `atlas_samples.tsv`.
+Genome-phenome Archive (EGA), as described in that publication.
+
+The code for the supplementary analyses (cross-validation, external
+evaluation, sensitivity analyses) is in [`supplement/`](supplement/README.md).
 
 ## Pipeline
 
@@ -51,12 +53,13 @@ bash 00_process_wgbs.sh <sample_id> <fastq_dir> <out_dir> hg38.fa <CHALM/src> <s
 ### Step 1: merge matrices
 
 ```bash
-python 01_merge_matrices.py --samples atlas_samples.tsv \
+python 01_merge_matrices.py \
     --chalm-dir <out_dir>/3.chalm --methratio-dir <out_dir>/3.methratio \
     --manifest-dir <manifests> --out-dir work
 ```
 
-Keeps the CpGs targeted by any of the HM450, EPIC, EPIC+ and EPIC v2 arrays,
+Merges every sample in `--chalm-dir` (or the sample IDs listed, one per line, in
+the optional `--samples` file). Keeps the CpGs targeted by any of the HM450, EPIC, EPIC+ and EPIC v2 arrays,
 taken from the hg38 manifests (`<platform>.hg38.manifest.tsv`, with columns
 `Probe_ID`, `CpG_chrm`, `CpG_beg`, `CpG_end`). CpGs on chr1-22, X, Y and M are
 kept. A CpG is identified as `<chrom>_<position>`, the 1-based position of its

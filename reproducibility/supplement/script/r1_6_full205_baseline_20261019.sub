@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH -p standard
+#SBATCH -n 1
+#SBATCH -c 2
+#SBATCH --mem=24G
+#SBATCH -t 03:00:00
+#SBATCH --chdir=.
+#SBATCH -o results/r1_6_full205_baseline_log_20261019/%x.%A_%a.out
+#SBATCH -e results/r1_6_full205_baseline_log_20261019/%x.%A_%a.err
+# Array index = atlas shard index (0-51). Collect afterwards with: python -m src.r1_6_full205_baseline collect
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export MPLCONFIGDIR=${TMPDIR:-/tmp}/mpl XDG_CACHE_HOME=${TMPDIR:-/tmp}/cache
+python -m src.r1_6_full205_baseline run --shard-index "$SLURM_ARRAY_TASK_ID"

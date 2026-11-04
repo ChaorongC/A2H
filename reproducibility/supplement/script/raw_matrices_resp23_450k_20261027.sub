@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -p standard
+#SBATCH -n 1
+#SBATCH -c 2
+#SBATCH --mem=12G
+#SBATCH -t 08:00:00
+#SBATCH --chdir=.
+#SBATCH -o results/raw_matrices_resp23_450k_log_20261027/%x.%A_%a.out
+#SBATCH -e results/raw_matrices_resp23_450k_log_20261027/%x.%A_%a.err
+# ACTION = bed | window (0-38) | window_ka | extract (0-38) | condition (0-12, --constraint=avx512) | pgpukc | extra | assemble
+# Memory per action is set at submission (--mem, -c = mem/6G on standard).
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export MPLCONFIGDIR=${TMPDIR:-/tmp}/mpl XDG_CACHE_HOME=${TMPDIR:-/tmp}/cache
+PY=python
+module load samtools/1.15.1
+$PY -m src.raw_matrices_resp23_450k_20261027 "$ACTION" --index "${SLURM_ARRAY_TASK_ID:-0}"

@@ -5,11 +5,13 @@ manifests (HM450, EPIC, EPIC+, EPICv2). A CpG is identified as
 "<chrom>_<position>", the 1-based position of the cytosine (manifest CpG_beg + 1).
 
 Usage:
-    python 01_merge_matrices.py --samples atlas_samples.tsv \
+    python 01_merge_matrices.py \
         --chalm-dir <dir with <sample_id>_CHALM.txt> \
         --methratio-dir <dir with <sample_id>_methRatio.txt> \
         --manifest-dir <dir with *.hg38.manifest.tsv> \
-        --out-dir <dir> [--threads N]
+        --out-dir <dir> [--threads N] [--samples <file with one sample_id per line>]
+
+Samples are every <sample_id>_CHALM.txt in --chalm-dir unless --samples is given.
 
 Outputs (pandas pickles, rows = CpGs, columns = sample_id):
     merged_CHALM.pkl, merged_methratio.pkl
@@ -48,7 +50,7 @@ def merge(sample_ids, pattern, cpgs, threads):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--samples", required=True)
+    p.add_argument("--samples", help="file with one sample_id per line (default: every <sample_id>_CHALM.txt in --chalm-dir)")
     p.add_argument("--chalm-dir", required=True)
     p.add_argument("--methratio-dir", required=True)
     p.add_argument("--manifest-dir", required=True)
@@ -56,7 +58,10 @@ def main():
     p.add_argument("--threads", type=int, default=-1)
     a = p.parse_args()
 
-    sample_ids = pd.read_table(a.samples)["sample_id"].astype(str).tolist()
+    if a.samples:
+        sample_ids = [s.strip() for s in open(a.samples) if s.strip()]
+    else:
+        sample_ids = sorted(f[: -len("_CHALM.txt")] for f in os.listdir(a.chalm_dir) if f.endswith("_CHALM.txt"))
     cpgs = array_cpgs(a.manifest_dir)
     os.makedirs(a.out_dir, exist_ok=True)
 

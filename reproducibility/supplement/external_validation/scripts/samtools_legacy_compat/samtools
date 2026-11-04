@@ -1,0 +1,63 @@
+#!/bin/bash
+set -euo pipefail
+
+module load samtools/1.10 >/dev/null 2>&1
+real_samtools="$(command -v samtools)"
+
+if [[ $# -eq 0 ]]; then
+    exec "${real_samtools}"
+fi
+
+subcommand="$1"
+shift
+
+if [[ "${subcommand}" != "view" ]]; then
+    exec "${real_samtools}" "${subcommand}" "$@"
+fi
+
+args=()
+legacy_x_compat=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -X)
+            legacy_x_compat=1
+            shift
+            ;;
+        -XS)
+            legacy_x_compat=1
+            args+=("-h")
+            shift
+            ;;
+        -XSh)
+            legacy_x_compat=1
+            args+=("-h")
+            shift
+            ;;
+        -bS)
+            args+=("-b")
+            shift
+            ;;
+        *)
+            args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ "${legacy_x_compat}" -eq 0 ]]; then
+    exec "${real_samtools}" view "${args[@]}"
+fi
+
+"${real_samtools}" view "${args[@]}" | awk '
+BEGIN { OFS = "\t" }
+/^@/ { print; next }
+{
+    flag = $2 + 0
+    legacy = ""
+    if (and(flag, 4) || and(flag, 8)) legacy = legacy "u"
+    if (and(flag, 2)) legacy = legacy "P"
+    if (and(flag, 256) || and(flag, 2048)) legacy = legacy "s"
+    if (legacy == "") legacy = $2
+    $2 = legacy
+    print
+}'

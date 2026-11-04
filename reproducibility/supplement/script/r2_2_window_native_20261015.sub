@@ -1,0 +1,23 @@
+#!/bin/bash
+# EPIC-window extract (EPIC CpG +/- 600 bp, merged) of one native sorted.bam per MANIFEST row.
+#SBATCH --job-name=r2_2_window_native
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --time=12:00:00
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+module load samtools/1.15.1
+MANIFEST=${MANIFEST:-results/r2_2_e2e3_20261015/manifests/window_native_manifest.tsv}
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "$MANIFEST"); test -n "$row"
+IFS=$'\t' read -r task sample native_dir window_dir <<< "$row"
+py310=python
+"$py310" -c "import json,sys; m=json.load(open(sys.argv[1])); assert m['state']=='native_calls_complete_unverified_archive' and m['sample_id']==sys.argv[2], m['state']" \
+    "$native_dir/recovery_metadata.json" "$sample"
+python -m src.r2_2_epic_window_call window --samtools "$(command -v samtools)" \
+    --source-bam "$native_dir/sorted.bam" --bed results/r2_2_e2e3_20261015/epic_window/epic_w600.bed \
+    --out-dir "$window_dir" --threads "$((SLURM_CPUS_PER_TASK - 1))"

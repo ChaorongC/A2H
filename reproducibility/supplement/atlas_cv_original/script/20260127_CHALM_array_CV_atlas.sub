@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH --mail-type=fail,end
+#SBATCH --mail-user=crchen0120@gmail.com
+#SBATCH --job-name=cv
+#SBATCH -p highmem
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=320G
+#SBATCH --time=14-00:00:00
+#SBATCH --cpus-per-task=40
+#SBATCH --out=atlas_cv_original/log/chalmarray_atlas_cv.%J.o
+#SBATCH --error=atlas_cv_original/log/chalmarray_atlas_cv.%J.e
+
+# activate a Python environment with numpy, pandas, scipy, scikit-learn and joblib
+date;
+
+python atlas_cv_original/src/20250127_CHALM-array_v1_CV.py;
+
+date;

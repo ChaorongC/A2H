@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=r2_2_E1_atlas_size
+#SBATCH --partition=standard
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=6G
+#SBATCH --time=02:00:00
+#SBATCH --output=results/r2_2_sensitivity_20261011/log/E1_%A_%a.out
+#SBATCH --error=results/r2_2_sensitivity_20261011/log/E1_%A_%a.err
+
+set -euo pipefail
+cd .
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+sizes=(75 100 150)
+replicate=$((SLURM_ARRAY_TASK_ID / 3))
+size=${sizes[$((SLURM_ARRAY_TASK_ID % 3))]}
+python -m src.r2_2_reference_size run \
+  --replicate "${replicate}" --size "${size}"

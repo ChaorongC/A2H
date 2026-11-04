@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -p standard
+#SBATCH -n 1
+#SBATCH -c 2
+#SBATCH --mem=12G
+#SBATCH -t 08:00:00
+#SBATCH --chdir=.
+#SBATCH -o results/raw_matrices_resp_450k_log_20261026/%x.%A_%a.out
+#SBATCH -e results/raw_matrices_resp_450k_log_20261026/%x.%A_%a.err
+# ACTION = rows | wgbs (0-9) | base | refit (0-51, --constraint=avx512) | r15 | e1 (0-59) | extra | check (0-1) | assemble (0-2: Resp 1.5, 1.6, 2.4)
+# Memory per action is set at submission (--mem, -c = mem/6G on standard).
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export MPLCONFIGDIR=${TMPDIR:-/tmp}/mpl XDG_CACHE_HOME=${TMPDIR:-/tmp}/cache
+PY=python
+$PY -m src.raw_matrices_resp_450k_20261026 "$ACTION" --index "${SLURM_ARRAY_TASK_ID:-0}"

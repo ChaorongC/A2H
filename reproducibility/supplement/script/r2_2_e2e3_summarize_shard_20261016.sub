@@ -1,0 +1,22 @@
+#!/bin/bash
+# Run the unchanged src/r2_2_e2e3_summarize.py on one shard root from build_summary_shards.sh.
+# Required env: SHARDS=<namespace>/shards.tsv
+#SBATCH --job-name=r2_2_summarize
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --time=06:00:00
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+ROOT=work/r2_2_e2e3_20261015
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "${SHARDS:?}"); test -n "$row"
+IFS=$'\t' read -r task shard shard_root <<< "$row"
+test ! -e "$shard_root/out"
+python -m src.r2_2_e2e3_summarize --root "$shard_root" \
+    --native-root "$ROOT/native_links" \
+    --pgpuk-wgbs-root external_validation/results/paired_validation_v2/wgbs \
+    --epic-mapping results/r2_2_sensitivity_20261011/E1/epic_mapping.tsv --output-dir "$shard_root/out"

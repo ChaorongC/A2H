@@ -1,0 +1,17 @@
+#!/bin/bash
+# Failed-only native recovery: originals remain on DFS9, new writes on DFS3b.
+#SBATCH --job-name=r2_2_native_recover
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=40
+#SBATCH --mem=128G
+#SBATCH --time=7-00:00:00
+#SBATCH --output=work/r2_2_recovery_20261012/log/%x.%A_%a.out
+#SBATCH --error=work/r2_2_recovery_20261012/log/%x.%A_%a.err
+
+set -euo pipefail
+module load trimgalore/0.6.7 samtools/1.10
+review="."
+manifest=${RECOVERY_MANIFEST:-$review/results/r2_2_sensitivity_20261011/recovery_dfs3b_20261012/recovery_manifest.tsv}
+python "$review/src/r2_2_recover_native.py" --task-manifest "$manifest" --task-index "$SLURM_ARRAY_TASK_ID"

@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --job-name=a2h_tissue_only
+#SBATCH -p standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4G
+#SBATCH --time=02:00:00
+#SBATCH --chdir=.
+#SBATCH --output=results/tissue_only_r1_5_r1_6_20261008/log/%x_%A_%a.out
+#SBATCH --error=results/tissue_only_r1_5_r1_6_20261008/log/%x_%A_%a.err
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+export MPLCONFIGDIR="${SLURM_TMPDIR:-/tmp}/a2h_mpl_${SLURM_JOB_ID}"
+export XDG_CACHE_HOME="${SLURM_TMPDIR:-/tmp}/a2h_cache_${SLURM_JOB_ID}"
+args=()
+if [[ "${PILOT:-0}" == 1 ]]; then args+=(--pilot); fi
+python -m src.tissue_only_transfer run \
+  --task-id "${SLURM_ARRAY_TASK_ID:?Missing task ID}" "${args[@]}"

@@ -1,0 +1,59 @@
+#!/bin/bash
+# R2-2 external arms on the combined E2/E3/C summary (summary_20261016), as fixed in
+# R2-2_PLAN_amendment_20261014.md (2026-10-15 decisions): option A refits (min_train 20 of 39;
+# native-39 + 9 E2 seed/depth + 3 E3 raw lengths), paired compare vs native-39 (bootstrap over
+# the 10 PGP-UK participants), and option C scoring of the deployed A2H vs capped PGP-UK truth.
+#SBATCH --job-name=r2_2_e2e3_external
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --time=06:00:00
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+PY=python
+OUT=results/r2_2_e2e3_external_20261016
+EPIC=work/r2_2_e2e3_20261015/summary_20261016/epic
+EXT=results/r2_2_sensitivity_20261011/E1
+SAMPLES=results/r2_2_e2e3_20261015/manifests/window_native_manifest.tsv
+PAIRS=results/pgpuk_depth10_calibrated/pairs.tsv
+MIN_TRAIN=20
+test ! -e "$OUT"
+mkdir -p "$OUT/refit"
+
+refit() { "$PY" -m src.r2_2_e2e3_external refit --epic-dir "$EPIC" --experiment "$1" --condition "$2" \
+          --samples "$SAMPLES" --min-train "$MIN_TRAIN" --external-dir "$EXT" --output-dir "$OUT/refit/$1__$2"; }
+refit e2 native  # e2/e3 native parquets are identical for all 39 samples (checked 2026-10-16)
+for c in seed1_depth5 seed1_depth10 seed1_depth20 seed2_depth5 seed2_depth10 seed2_depth20 \
+         seed3_depth5 seed3_depth10 seed3_depth20; do refit e2 "$c"; done
+for c in raw125 raw100 raw75; do refit e3 "$c"; done
+
+"$PY" -m src.r2_2_e2e3_external compare --external-dir "$EXT" --native-refit "$OUT/refit/e2__native" \
+    --condition-refits "$OUT"/refit/e2__seed* --output "$OUT/compare_e2.tsv"
+"$PY" -m src.r2_2_e2e3_external compare --external-dir "$EXT" --native-refit "$OUT/refit/e2__native" \
+    --condition-refits "$OUT/refit/e3__raw125" "$OUT/refit/e3__raw100" "$OUT/refit/e3__raw75" --output "$OUT/compare_e3.tsv"
+"$PY" -m src.r2_2_e2e3_external pgpuk-c --epic-dir "$EPIC" --external-dir "$EXT" --pairs "$PAIRS" \
+    --min-depth 10 --output "$OUT/pgpuk_c.tsv"
+
+"$PY" - "$OUT" "$EPIC" "$EXT" "$SAMPLES" "$PAIRS" "$MIN_TRAIN" <<'EOF'
+import hashlib, json, os, sys
+from datetime import datetime, timezone
+from pathlib import Path
+out, epic, ext, samples, pairs, min_train = sys.argv[1:]
+h = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+prov = {"created_utc": datetime.now(timezone.utc).isoformat(), "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+        "python": sys.executable, "epic_dir": epic,
+        "summary_provenance": "results/r2_2_e2e3_20261015/summary_20261016/provenance.json",
+        "parameters": {"min_train": int(min_train), "n_boot": 2000, "bootstrap_seed": 20261015,
+                       "pgpuk_c_min_depth": 10, "native_refit": "e2__native"},
+        "input_sha256": {p: h(p) for p in [f"{ext}/external_CHALM.parquet", f"{ext}/external_CAMDA.parquet", samples, pairs,
+                                           "results/r2_2_e2e3_20261015/summary_20261016/provenance.json"]},
+        "code_sha256": {p: h(p) for p in ["src/r2_2_e2e3_external.py", "src/r2_2_common.py", "src/evaluate_pgpuk.py",
+                                          "script/r2_2_e2e3_external_20261016.sub"]},
+        "outputs": sorted(str(p.relative_to(out)) for p in Path(out).rglob("*") if p.is_file())}
+Path(out, "provenance.json").write_text(json.dumps(prov, indent=2) + "\n")
+EOF
+echo done

@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH --job-name=a2h_rev_cv_sum
+#SBATCH -p standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=32G
+#SBATCH --time=12:00:00
+#SBATCH --chdir=.
+#SBATCH --output=results/atlas_cv_full/log/%x_%j.out
+#SBATCH --error=results/atlas_cv_full/log/%x_%j.err
+
+set -euo pipefail
+: "${BRANCH:?Set BRANCH=historical_sample or donor_grouped when submitting}"
+: "${MATRIX_BRANCH:?Set MATRIX_BRANCH=original or depth10 when submitting}"
+
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+export MPLCONFIGDIR="${SLURM_TMPDIR:-/tmp}/a2h_mpl_${SLURM_JOB_ID}"
+export XDG_CACHE_HOME="${SLURM_TMPDIR:-/tmp}/a2h_cache_${SLURM_JOB_ID}"
+
+PYTHON=python
+"${PYTHON}" -m src.summarize_atlas_cv \
+  --shard-dir "results/atlas_shards_${MATRIX_BRANCH}_full" \
+  --split-dir results/atlas_splits \
+  --split-root "results/atlas_cv_full/${MATRIX_BRANCH}" \
+  --output-dir "results/atlas_cv_full/${MATRIX_BRANCH}/${BRANCH}_summary" \
+  --branch "${BRANCH}" \
+  --split-count 100

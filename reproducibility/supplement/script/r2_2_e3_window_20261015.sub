@@ -1,0 +1,29 @@
+#!/bin/bash
+# E3 (atlas) in EPIC-window mode: per-mate raw* caps on the native's EPIC-window extract,
+# per-contig parallel calls. Only EPIC rows of the outputs are valid.
+#SBATCH --job-name=r2_2_e3w
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=40G
+#SBATCH --time=1-00:00:00
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --chdir=.
+
+set -euo pipefail
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+module load samtools/1.15.1
+MANIFEST=${MANIFEST:-results/r2_2_e2e3_20261015/manifests/e3_window_manifest.tsv}
+ROOT=work/r2_2_e2e3_20261015
+row=$(awk -F'\t' -v t="$SLURM_ARRAY_TASK_ID" 'NR > 1 && $1 == t' "$MANIFEST"); test -n "$row"
+IFS=$'\t' read -r task sample condition native_dir window_dir out_dir _e3task <<< "$row"
+py310=python
+"$py310" -c "import json,sys; m=json.load(open(sys.argv[1])); assert m['state']=='native_calls_complete_unverified_archive' and m['sample_id']==sys.argv[2], m['state']" \
+    "$native_dir/recovery_metadata.json" "$sample"
+"$py310" -m src.r2_2_e3_aligned_call_cap --sample-id "$sample" --condition "$condition" \
+    --source-bam "$window_dir/window.bam" --window-dir "$window_dir" --out-dir "$out_dir" \
+    --skip-camda-table --remove-derived-bam --processes 8 --samtools "$(command -v samtools)" \
+    --reference reference/hg38.fa \
+    --chalm-py tools/CHALM/src/CHALM.py \
+    --samtools-dir tools/samtools-0.1.19 --python-executable "$py310" --min-depth 4 \
+    --call-processes "$((SLURM_CPUS_PER_TASK - 1))" --contig-fasta-dir "$ROOT/reference/hg38_by_contig"
