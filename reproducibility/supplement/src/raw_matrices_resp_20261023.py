@@ -637,7 +637,7 @@ def stage_check(index):
         return
     # R1-4: the shipped grouping script reproduces the old membership and group metrics.
     import importlib.util
-    spec = importlib.util.spec_from_file_location("make_groups", DOCS / "make_groups.py")
+    spec = importlib.util.spec_from_file_location("make_groups", Path("supp_fig2_matched_groups/make_groups.py"))
     mg = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mg)
     folder = STAGE / "cohort/PGPUK"

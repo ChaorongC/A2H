@@ -4,7 +4,7 @@ Unit = sample (39 atlas representatives; 10 PGP-UK participants for C). E2 seeds
 averaged within sample. Primary per the pre-fixed criteria (R2-2_PLAN_amendment_20261014.md):
 mean signed shift vs native and callability loss (1 - native_retention); RMSE vs native is
 reported, not a pass/fail measure. 95% intervals: percentile bootstrap over samples.
-Run from R/: python results/r2_2_e2e3_20261015/condition_summary.py
+Run from reproducibility/supplement/: python supp_fig4_depth_readlength/condition_summary.py
 """
 
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-HERE = Path(__file__).resolve().parent / "summary_20261016"
+HERE = Path("results/r2_2_e2e3_20261015/summary_20261016")
 N_BOOT, SEED = 2000, 20261016
 
 

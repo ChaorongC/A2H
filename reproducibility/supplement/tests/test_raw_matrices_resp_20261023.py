@@ -7,7 +7,7 @@ import pandas as pd
 from src.evaluate_pgpuk import row_stats
 from src.run_pgpuk_disjoint_complete10 import make_groups as published_make_groups
 
-SCRIPT = Path(__file__).resolve().parents[1] / "collaborator_figure_data_20261017/raw_matrices_resp_20261023/make_groups.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "supp_fig2_matched_groups/make_groups.py"
 
 
 def load_script():

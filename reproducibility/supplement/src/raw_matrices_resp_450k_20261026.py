@@ -451,7 +451,7 @@ def stage_extra():
 def stage_check(index):
     if index == 0:
         import importlib.util
-        spec = importlib.util.spec_from_file_location("make_groups", DOCS / "make_groups.py")
+        spec = importlib.util.spec_from_file_location("make_groups", Path("supp_fig2_matched_groups/make_groups.py"))
         mg = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mg)
         old = pd.read_csv(rm.GROUPS / "groups.tsv", sep="\t")
