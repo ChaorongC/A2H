@@ -12,11 +12,14 @@ the bundled probe mapping and coefficient files.
 - `numpy`
 - `scipy`
 - `joblib`
-- `pyarrow`
 
-The bundled `A2H_coef.pkl` contains CHALM and CAMDA coefficients in
-`chalm_coef` and `camda_coef`. The current pickle requires `pyarrow` when
-loaded by `pandas`.
+The bundled `A2H_coef.npz` is a compressed NumPy archive with three arrays:
+`featureID` (hg38 CpG locus), and `chalm_coef` and `camda_coef` (one row of
+three polynomial coefficients per CpG, highest degree first, as used by
+`numpy.polyval`). The bundled `A2H_cpg_info.npz` holds `featureID` and the
+per-CpG training summaries (`min`, `max`, `mean`, `std`, `betabinom_a`,
+`betabinom_b`) used for confidence levels. Both files load with NumPy alone, with
+no pickle. Legacy `.pkl` files can still be passed with `-c` and `--cpg-info`.
 
 ## Usage
 
@@ -33,8 +36,8 @@ A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
 | `-i INPUT` | Input methylation TSV. First row must be sample IDs and first column must be probe IDs. |
 | `-o OUTPUT` | Output directory for A2H transformation. |
 | `--prefix PREFIX` | Prefix for output files. |
-| `-c COEF` | A2H coefficient pickle. Defaults to bundled `A2H_coef.pkl`. |
-| `--cpg-info CPG_INFO_PATH` | CpG loci and confidence-level metadata. Defaults to bundled `A2H_cpg_info.pkl`. |
+| `-c COEF` | A2H coefficient file (`.npz`, or a legacy `.pkl`). Defaults to bundled `A2H_coef.npz`. |
+| `--cpg-info CPG_INFO_PATH` | CpG loci and confidence-level metadata (`.npz`, or a legacy `.pkl`). Defaults to bundled `A2H_cpg_info.npz`. |
 | `-t THREAD` | Number of parallel workers for transformation. |
 | `--ref {hg38,hg19}` | Reference genome version for probe mapping. |
 | `--beadchip {450k,EPIC,HM450,850k}` | Input beadchip platform. |

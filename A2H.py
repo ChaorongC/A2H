@@ -49,17 +49,17 @@ parser.add_argument(
     action="store",
     dest="coef",
     type=str,
-    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_coef.pkl",
-    help="A2H coefficients provided in .pkl format.",
+    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_coef.npz",
+    help="A2H coefficients in .npz format (or a legacy .pkl).",
 )
 
 parser.add_argument(
     "--cpg-info",
     action="store",
     dest="cpg_info_path",
-    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_cpg_info.pkl",
+    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_cpg_info.npz",
     type=str,
-    help="CpG loci and their infomation in training data.",
+    help="CpG loci and their infomation in training data, in .npz format (or a legacy .pkl).",
 )
 parser.add_argument("-t", action="store", dest="thread", default=-1, type=int)
 parser.add_argument(
@@ -228,7 +228,13 @@ print(
 )
 
 try:
-    allProbe_result = pd.read_pickle(args.coef)
+    if args.coef.endswith(".npz"):
+        coef_npz = np.load(args.coef)
+        allProbe_result = pd.DataFrame(
+            {k: (coef_npz[k] if coef_npz[k].ndim == 1 else list(coef_npz[k])) for k in coef_npz.files}
+        )
+    else:
+        allProbe_result = pd.read_pickle(args.coef)
 except ModuleNotFoundError as exc:
     print(
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -355,7 +361,14 @@ if args.cl:
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "A2H transformation confidence level calculation starts.",
     )
-    cpg_info = pd.read_pickle(args.cpg_info_path)
+    if args.cpg_info_path.endswith(".npz"):
+        cpg_info_npz = np.load(args.cpg_info_path)
+        cpg_info = pd.DataFrame(
+            {k: cpg_info_npz[k] for k in cpg_info_npz.files if k != "featureID"},
+            index=cpg_info_npz["featureID"],
+        )
+    else:
+        cpg_info = pd.read_pickle(args.cpg_info_path)
     methylation_input_ci = pd.DataFrame(
         Parallel(n_jobs=-1, verbose=0, backend="multiprocessing")(
             delayed(A2H_CI)(_) for _ in methylation_input.values

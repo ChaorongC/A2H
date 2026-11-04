@@ -6,12 +6,14 @@ Environment requirement:
     - numpy
     - scipy
     - joblib
-    - pyarrow
 
 Note:
-    The bundled A2H_coef.pkl contains CHALM and CAMDA coefficients in
-    columns chalm_coef and camda_coef. The current pickle requires pyarrow
-    when loaded by pandas.
+    The bundled A2H_coef.npz is a compressed NumPy archive with arrays
+    featureID (hg38 CpG locus), chalm_coef and camda_coef (three polynomial
+    coefficients per CpG, highest degree first). A2H_cpg_info.npz holds
+    featureID and the per-CpG training summaries (min, max, mean, std,
+    betabinom_a, betabinom_b) used for confidence levels. Both load with
+    NumPy alone. Legacy .pkl files can still be passed with -c and --cpg-info.
 
 
 ==========A2H v0.4.0==========
@@ -28,9 +30,10 @@ options:
                         and first row as sample ID.
   -o OUTPUT             Output directory for A2H transformation.
   --prefix PREFIX       Prefix for A2H transformation output.
-  -c COEF               A2H coefficients provided in .pkl format.
+  -c COEF               A2H coefficients in .npz format (or a legacy .pkl).
   --cpg-info CPG_INFO_PATH
-                        CpG loci and their information in training data.
+                        CpG loci and their information in training data
+                        (.npz, or a legacy .pkl).
   -t THREAD             Number of parallel workers for transformation.
   --ref {hg38,hg19}     Reference genome version for probe mapping.
   --beadchip {450k,EPIC,HM450,850k}
