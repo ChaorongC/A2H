@@ -50,7 +50,7 @@ parser.add_argument(
     dest="coef",
     type=str,
     default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_coef.npz",
-    help="A2H coefficients in .npz format (or a legacy .pkl).",
+    help="A2H coefficients in .npz format (arrays: featureID, chalm_coef, camda_coef).",
 )
 
 parser.add_argument(
@@ -59,7 +59,7 @@ parser.add_argument(
     dest="cpg_info_path",
     default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_cpg_info.npz",
     type=str,
-    help="CpG loci and their infomation in training data, in .npz format (or a legacy .pkl).",
+    help="CpG loci and their information in training data, in .npz format (arrays: featureID, betabinom_a, betabinom_b, ...).",
 )
 parser.add_argument("-t", action="store", dest="thread", default=-1, type=int)
 parser.add_argument(
@@ -227,53 +227,23 @@ print(
     "Reading coefficient file %s" % args.coef,
 )
 
-try:
-    if args.coef.endswith(".npz"):
-        coef_npz = np.load(args.coef)
-        allProbe_result = pd.DataFrame(
-            {k: (coef_npz[k] if coef_npz[k].ndim == 1 else list(coef_npz[k])) for k in coef_npz.files}
-        )
-    else:
-        allProbe_result = pd.read_pickle(args.coef)
-except ModuleNotFoundError as exc:
+coef_npz = np.load(args.coef)
+required_coef_arrays = ["featureID"] + (["chalm_coef"] if args.chalm else []) + (["camda_coef"] if args.camda else [])
+missing_coef_arrays = [k for k in required_coef_arrays if k not in coef_npz.files]
+if missing_coef_arrays:
     print(
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Error: reading coefficient file failed because Python module '%s' is not installed."
-        % exc.name,
+        "Error: coefficient file is missing array(s): %s" % ", ".join(missing_coef_arrays),
     )
     sys.exit(1)
 
-if "featureID" not in allProbe_result.columns:
-    print(
-        "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Error: coefficient file must contain featureID column.",
-    )
-    sys.exit(1)
-
-allProbe_result = allProbe_result.drop_duplicates(subset="featureID", keep="first")
-
-chalm_coef_column = "chalm_coef" if "chalm_coef" in allProbe_result.columns else "coef"
-if chalm_coef_column not in allProbe_result.columns:
-    print(
-        "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Error: coefficient file must contain chalm_coef or coef column for CHALM output.",
-    )
-    sys.exit(1)
-
-chalm_coef_by_feature = allProbe_result.set_index("featureID")[chalm_coef_column].to_dict()
-
-camda_coef_by_feature = None
-if args.camda:
-    camda_coef_column = "camda_coef" if "camda_coef" in allProbe_result.columns else None
-    if camda_coef_column is None and len(allProbe_result.columns) >= 3:
-        camda_coef_column = allProbe_result.columns[2]
-    if camda_coef_column not in allProbe_result.columns:
-        print(
-            "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "Error: --camda requires CAMDA coefficients, but this coefficient file only contains CHALM coefficients.",
-        )
-        sys.exit(1)
-    camda_coef_by_feature = allProbe_result.set_index("featureID")[camda_coef_column].to_dict()
+coef_feature_ids = coef_npz["featureID"]
+chalm_coef_by_feature = (
+    dict(zip(coef_feature_ids, coef_npz["chalm_coef"])) if args.chalm else None
+)
+camda_coef_by_feature = (
+    dict(zip(coef_feature_ids, coef_npz["camda_coef"])) if args.camda else None
+)
 
 
 print(
@@ -361,14 +331,20 @@ if args.cl:
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "A2H transformation confidence level calculation starts.",
     )
-    if args.cpg_info_path.endswith(".npz"):
-        cpg_info_npz = np.load(args.cpg_info_path)
-        cpg_info = pd.DataFrame(
-            {k: cpg_info_npz[k] for k in cpg_info_npz.files if k != "featureID"},
-            index=cpg_info_npz["featureID"],
+    cpg_info_npz = np.load(args.cpg_info_path)
+    missing_info_arrays = [
+        k for k in ["featureID", "betabinom_a", "betabinom_b"] if k not in cpg_info_npz.files
+    ]
+    if missing_info_arrays:
+        print(
+            "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Error: CpG info file is missing array(s): %s" % ", ".join(missing_info_arrays),
         )
-    else:
-        cpg_info = pd.read_pickle(args.cpg_info_path)
+        sys.exit(1)
+    cpg_info = pd.DataFrame(
+        {k: cpg_info_npz[k] for k in cpg_info_npz.files if k != "featureID"},
+        index=cpg_info_npz["featureID"],
+    )
     methylation_input_ci = pd.DataFrame(
         Parallel(n_jobs=-1, verbose=0, backend="multiprocessing")(
             delayed(A2H_CI)(_) for _ in methylation_input.values

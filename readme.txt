@@ -1,19 +1,20 @@
 Version: A2H v0.4.0
 
 Environment requirement:
-    - python >= 3.7
-    - pandas
-    - numpy
-    - scipy
-    - joblib
+    - python >= 3.8
+    - numpy >= 1.17
+    - pandas >= 1.0
+    - scipy >= 1.4
+    - joblib >= 0.14
 
 Note:
     The bundled A2H_coef.npz is a compressed NumPy archive with arrays
     featureID (hg38 CpG locus), chalm_coef and camda_coef (three polynomial
     coefficients per CpG, highest degree first). A2H_cpg_info.npz holds
-    featureID and the per-CpG training summaries (min, max, mean, std,
-    betabinom_a, betabinom_b) used for confidence levels. Both load with
-    NumPy alone. Legacy .pkl files can still be passed with -c and --cpg-info.
+    featureID and the per-CpG summaries of the reference WGBS methylation
+    levels (min, max, mean, std, betabinom_a, betabinom_b) used for confidence
+    levels. Both load with NumPy alone. See README.md for the format of every
+    bundled resource file.
 
 
 ==========A2H v0.4.0==========
@@ -30,10 +31,12 @@ options:
                         and first row as sample ID.
   -o OUTPUT             Output directory for A2H transformation.
   --prefix PREFIX       Prefix for A2H transformation output.
-  -c COEF               A2H coefficients in .npz format (or a legacy .pkl).
+  -c COEF               A2H coefficients in .npz format (arrays: featureID,
+                        chalm_coef, camda_coef).
   --cpg-info CPG_INFO_PATH
-                        CpG loci and their information in training data
-                        (.npz, or a legacy .pkl).
+                        CpG loci and their information in training data, in
+                        .npz format (arrays: featureID, betabinom_a,
+                        betabinom_b, ...).
   -t THREAD             Number of parallel workers for transformation.
   --ref {hg38,hg19}     Reference genome version for probe mapping.
   --beadchip {450k,EPIC,HM450,850k}
