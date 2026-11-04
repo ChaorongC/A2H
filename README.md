@@ -1,6 +1,6 @@
 # A2H
 
-Version: `A2H v0.4.0`
+Version: `A2H v0.5.0`
 
 A2H transforms DNA methylation array beta values (Illumina HM450 or EPIC) into
 CHALM and CAMDA values. For each CpG it applies a degree-2 polynomial fitted on a
@@ -51,7 +51,7 @@ A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
        [--cpg-info CPG_INFO_PATH] [-t THREAD] [--ref {hg38,hg19}]
        [--beadchip {450k,EPIC,HM450,850k}] [--cl] [--probe]
        [--verbose VERBOSE] [--chalm] [--camda] [--filter FILTER]
-       [--exclude-constant] [--replace REPLACE]
+       [--clip] [--exclude-constant] [--replace REPLACE]
 ```
 
 | Option | Description |
@@ -67,8 +67,9 @@ A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
 | `--cl` | Also output the confidence level of every input value. |
 | `--filter FILTER` | Write additional filtered outputs in which values with confidence level below `FILTER` are set to `NaN`. Implies `--cl`. |
 | `--replace REPLACE` | With `--filter`, write `REPLACE` instead of `NaN` for filtered and missing values in the filtered outputs. |
+| `--clip` | Clip CHALM and CAMDA predictions to [0, 1], in both the raw and the filtered outputs. Off by default. |
 | `--exclude-constant` | Drop the 501 constant-input CpGs (see [Constant-Input CpGs](#constant-input-cpgs)) from all outputs. |
-| `-t THREAD` | Number of parallel workers for the CHALM/CAMDA transformation. Default: `-1` (all CPUs). |
+| `-t THREAD` | Number of parallel workers for the CHALM/CAMDA transformation and the confidence-level calculation. Default: `-1` (all CPUs). |
 | `--verbose VERBOSE` | Joblib progress verbosity. `0` silences progress. Default: `1`. |
 | `-c COEF` | Coefficient file. Default: bundled `A2H_coef.npz`. |
 | `--cpg-info CPG_INFO_PATH` | CpG information file used for confidence levels. Default: bundled `A2H_cpg_info.npz`. |
@@ -107,9 +108,13 @@ rows are CpG loci, or input probe IDs with `--probe`.
 | `<prefix>.camda.filtered.tsv` | `--camda` and `--filter` | CAMDA with low-confidence values masked |
 
 - A missing input value gives a missing output value.
-- Predictions are the raw polynomial values and are not clipped to the range of
-  the target measure (for example, some CHALM values in the bundled test output
-  exceed 1).
+- By default, predictions are the raw polynomial values and are not clipped to
+  the range of the target measure. In the bundled test output, 57 of 893 CHALM
+  values exceed 1, and 23 of 893 CAMDA values fall outside [0, 1] (22 below 0,
+  1 above 1). Most of these come from input beta values in the tails of a
+  CpG's reference distribution, where the polynomial extrapolates; at
+  `--filter 0.1`, 38 of the 57 CHALM values and all 23 CAMDA values are masked.
+  Use `--clip` to bound predictions to [0, 1].
 - **Confidence level:** for an input beta value `b` at a CpG,
   `1 - 2 * |0.5 - F(floor(100 * b))|`, where `F` is the CDF of the beta-binomial
   distribution (n = 100) fitted to that CpG's reference methylation levels.

@@ -2,8 +2,8 @@
  # @ Author: Chaorong Chen (c.chen@uci.edu)
  # @ Create Time: 2024-10-29 17:00:56
  # @ Modified by: Chaorong Chen
- # @ Modified time: 2026-05-15 16:56:09
- # @ Description: A2H v0.4.0
+ # @ Modified time: 2026-11-03
+ # @ Description: A2H v0.5.0
  """
 
 import pandas as pd
@@ -19,7 +19,7 @@ from scipy.stats import betabinom
 from os.path import isdir
 
 warnings.filterwarnings("ignore")
-version = "0.4.0"
+version = "0.5.0"
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "-i",
@@ -119,6 +119,13 @@ parser.add_argument(
     default=None,
     type=float,
     help="The minimum confidence level to keep the transformed values, if assigned. Overwriting --cl.",
+)
+
+parser.add_argument(
+    "--clip",
+    action="store_true",
+    dest="clip",
+    help="Clip CHALM and CAMDA predictions to [0, 1]. By default predictions are not clipped.",
 )
 
 parser.add_argument(
@@ -297,6 +304,8 @@ if args.chalm:
         columns=methylation_input.columns[1:],
         index=methylation_probeid if args.probe else methylation_input.iloc[:, 0],
     )
+    if args.clip:
+        chalm_output = chalm_output.clip(lower=0, upper=1)
     chalm_output.to_csv(args.output + f"/{args.prefix}.chalm.tsv", sep="\t")
     
     print(
@@ -318,6 +327,8 @@ if args.camda:
         index=methylation_probeid if args.probe else methylation_input.iloc[:, 0],
     )
     
+    if args.clip:
+        camda_output = camda_output.clip(lower=0, upper=1)
     camda_output.to_csv(args.output + f"/{args.prefix}.camda.tsv", sep="\t")
     print(
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -346,7 +357,7 @@ if args.cl:
         index=cpg_info_npz["featureID"],
     )
     methylation_input_ci = pd.DataFrame(
-        Parallel(n_jobs=-1, verbose=0, backend="multiprocessing")(
+        Parallel(n_jobs=args.thread, verbose=0, backend="multiprocessing")(
             delayed(A2H_CI)(_) for _ in methylation_input.values
         ),
         columns=methylation_input.columns[1:],
