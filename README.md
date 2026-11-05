@@ -11,23 +11,44 @@ values.
 
 ## Requirements
 
-- Python >= 3.8
-- `numpy` >= 1.17
-- `pandas` >= 1.0
-- `scipy` >= 1.4
-- `joblib` >= 0.14
+By default A2H reads the bundled pandas pickles `A2H_coef.pkl` and
+`A2H_cpg_info.pkl`. Loading them needs:
 
-These minimum versions were tested on Python 3.8 (numpy 1.17.5, pandas 1.0.5,
-scipy 1.4.1, joblib 0.14.1). A2H was also tested on Python 3.13 with numpy
-2.1/2.4, pandas 2.2/3.0, scipy 1.15/1.17 and joblib 1.4/1.5. The bundled
-resource files are plain NumPy, TSV and text files; no pickle or `pyarrow` is
-needed.
-
-Install the dependencies, for example with:
+- Python >= 3.9
+- `numpy` >= 1.26
+- `pandas` >= 2.3
+- `pyarrow` (for `A2H_coef.pkl`; >= 10.0.1 with pandas 2.3, >= 13.0 with
+  pandas 3)
+- `scipy` and `joblib`
 
 ```bash
-pip install numpy pandas scipy joblib
+pip install "numpy>=1.26" "pandas>=2.3" pyarrow scipy joblib
 ```
+
+`A2H_coef.pkl` stores its locus IDs as a pyarrow-backed pandas string column,
+which pandas <= 2.2 and numpy <= 1.25 cannot unpickle. `A2H_cpg_info.pkl` alone
+loads with pandas >= 1.4. These limits were found by loading both files under
+pandas 1.3.5, 1.4.4, 1.5.3, 2.2.3, 2.3.0, 2.3.3 and 3.0.0 to 3.0.2, numpy 1.25.2,
+1.26.4 and 2.x, and pyarrow 10.0.1, 12.0.1, 13.0.0 and later. With pandas 2.3.0,
+numpy 1.26.4 and pyarrow 10.0.1, and with pandas 3.0.0 and pyarrow 13.0.0, the
+bundled test outputs are reproduced exactly.
+
+### Portable alternative: `.npz` resources
+
+`A2H_coef.npz` and `A2H_cpg_info.npz` hold the same values as the pickles as
+plain NumPy arrays. They load without pickle, pandas version constraints or
+`pyarrow`. Pass them explicitly:
+
+```bash
+python A2H.py -i test_methylation.tsv -o output --prefix A2H_test \
+    --chalm --camda --filter 0.1 \
+    -c A2H_coef.npz --cpg-info A2H_cpg_info.npz
+```
+
+With the `.npz` files, A2H runs on Python >= 3.8 with numpy >= 1.17,
+pandas >= 1.0, scipy >= 1.4 and joblib >= 0.14 (tested on Python 3.8 with
+numpy 1.17.5, pandas 1.0.5, scipy 1.4.1 and joblib 0.14.1, and on Python 3.13
+with pandas 2.2 and 3.0).
 
 ## Quick Start
 
@@ -71,8 +92,8 @@ A2H.py [-h] [-i INPUT] [-o OUTPUT] [--prefix PREFIX] [-c COEF]
 | `--exclude-constant` | Drop the 501 constant-input CpGs (see [Constant-Input CpGs](#constant-input-cpgs)) from all outputs. |
 | `-t THREAD` | Number of parallel workers for the CHALM/CAMDA transformation and the confidence-level calculation. Default: `-1` (all CPUs). |
 | `--verbose VERBOSE` | Joblib progress verbosity. `0` silences progress. Default: `1`. |
-| `-c COEF` | Coefficient file. Default: bundled `A2H_coef.npz`. |
-| `--cpg-info CPG_INFO_PATH` | CpG information file used for confidence levels. Default: bundled `A2H_cpg_info.npz`. |
+| `-c COEF` | Coefficient file, `.pkl` or `.npz` (read by file extension). Default: bundled `A2H_coef.pkl`. |
+| `--cpg-info CPG_INFO_PATH` | CpG information file used for confidence levels, `.pkl` or `.npz`. Default: bundled `A2H_cpg_info.pkl`. |
 
 ## Input Format
 
@@ -130,10 +151,30 @@ and the 1-based position of the CpG cytosine on the forward strand (for example,
 The code that trains the model and builds these files from the reference WGBS
 atlas is in [`reproducibility/`](reproducibility/README.md).
 
-### `A2H_coef.npz`
+### Model and stored coefficients
 
-NumPy archive (`numpy.load`) of the per-CpG polynomial coefficients. It covers
-1,030,653 CpGs.
+For CpG `j` and sample `s` with input methylation level (beta value)
+`m_(j,s)`, A2H predicts CHALM, and separately CAMDA, as
+
+```text
+ŷ_(j,s) = a_j · m_(j,s)² + b_j · m_(j,s) + c_j
+```
+
+with one set of coefficients `(a_j, b_j, c_j)` per CpG and target. Each CpG's
+coefficients are stored as a length-3 array `[c2, c1, c0] = [a_j, b_j, c_j]`,
+highest power first, as `numpy.polyval(coef, m)` expects. At the 501
+constant-input CpGs (see [Constant-Input CpGs](#constant-input-cpgs)) the stored
+array is `[0, 0, c_j]`, so the prediction is the constant `c_j` for any input.
+
+### `A2H_coef.pkl` (default) and `A2H_coef.npz`
+
+The per-CpG coefficients for 1,030,653 CpGs. Both files hold identical values.
+
+- `A2H_coef.pkl`: a pandas DataFrame (`pandas.read_pickle`) with one row per
+  CpG and columns `featureID` (CpG locus ID), `chalm_coef` and `camda_coef`
+  (each cell a `[c2, c1, c0]` list). See [Requirements](#requirements) for the
+  versions needed to load it.
+- `A2H_coef.npz`: a NumPy archive (`numpy.load`) with these arrays:
 
 | Array | dtype, shape | Content |
 | --- | --- | --- |
@@ -141,14 +182,14 @@ NumPy archive (`numpy.load`) of the per-CpG polynomial coefficients. It covers
 | `chalm_coef` | float64, `(n, 3)` | CHALM coefficients `[c2, c1, c0]` |
 | `camda_coef` | float64, `(n, 3)` | CAMDA coefficients `[c2, c1, c0]` |
 
-The prediction for beta value `b` is `c2 * b**2 + c1 * b + c0`
-(`numpy.polyval(coef, b)`).
+### `A2H_cpg_info.pkl` (default) and `A2H_cpg_info.npz`
 
-### `A2H_cpg_info.npz`
+Per-CpG summaries of the reference WGBS methylation levels used in training,
+for the same 1,030,653 CpGs. Both files hold identical values.
 
-NumPy archive of per-CpG summaries of the reference WGBS methylation levels
-used in training. It has the same 1,030,653 CpGs as `A2H_coef.npz`. Each array
-has shape `(n,)`.
+- `A2H_cpg_info.pkl`: a pandas DataFrame indexed by CpG locus ID (index name
+  `loci.hg38`), with the columns below except `featureID`.
+- `A2H_cpg_info.npz`: a NumPy archive with these arrays, each of shape `(n,)`:
 
 | Array | dtype | Content |
 | --- | --- | --- |
@@ -182,8 +223,9 @@ The 501 constant-input CpGs (see below), one row per CpG.
 
 At 501 CpGs the reference methylation level was identical in every reference
 sample (50 to 205 samples per CpG): it was 0 at 500 CpGs and 1 at 1 CpG. No
-polynomial can be fitted there, so A2H returns a single constant, estimated by
-kernel density, whatever the input beta value. CHALM is 0 at 500 of these CpGs
+polynomial can be fitted there, so A2H returns a single constant `c_j`
+(stored coefficients `[0, 0, c_j]`), estimated by kernel density, whatever the
+input beta value. CHALM is 0 at 500 of these CpGs
 and 1 at the other, and CAMDA is 0 at all 501.
 
 These CpGs are kept by default. Their confidence level is undefined (`NaN`) at

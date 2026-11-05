@@ -2,7 +2,7 @@
  # @ Author: Chaorong Chen (c.chen@uci.edu)
  # @ Create Time: 2024-10-29 17:00:56
  # @ Modified by: Chaorong Chen
- # @ Modified time: 2026-11-03
+ # @ Modified time: 2026-11-04
  # @ Description: A2H v0.5.0
  """
 
@@ -49,17 +49,17 @@ parser.add_argument(
     action="store",
     dest="coef",
     type=str,
-    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_coef.npz",
-    help="A2H coefficients in .npz format (arrays: featureID, chalm_coef, camda_coef).",
+    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_coef.pkl",
+    help="A2H coefficients: .pkl (default; needs pandas >= 2.3, numpy >= 1.26 and pyarrow) or .npz (arrays: featureID, chalm_coef, camda_coef).",
 )
 
 parser.add_argument(
     "--cpg-info",
     action="store",
     dest="cpg_info_path",
-    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_cpg_info.npz",
+    default=os.path.dirname(os.path.realpath(__file__)) + "/A2H_cpg_info.pkl",
     type=str,
-    help="CpG loci and their information in training data, in .npz format (arrays: featureID, betabinom_a, betabinom_b, ...).",
+    help="CpG loci and their information in training data: .pkl (default) or .npz (arrays: featureID, betabinom_a, betabinom_b, ...).",
 )
 parser.add_argument("-t", action="store", dest="thread", default=-1, type=int)
 parser.add_argument(
@@ -145,6 +145,22 @@ parser.add_argument(
 print(
     f"\n\n==========A2H v{version}==========\n\n",
 )
+
+
+def read_resource(path, kind):
+    """Read a .npz resource with NumPy, anything else as a pandas pickle."""
+    if path.endswith(".npz"):
+        return np.load(path)
+    try:
+        return pd.read_pickle(path)
+    except (ImportError, TypeError) as exc:
+        print(
+            "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Error: reading %s pickle %s failed (%s: %s). The bundled .pkl files need "
+            "pandas >= 2.3, numpy >= 1.26 and pyarrow; or pass the bundled .npz file instead."
+            % (kind, path, type(exc).__name__, exc),
+        )
+        sys.exit(1)
 
 
 def chalm_transform(x):
@@ -234,9 +250,10 @@ print(
     "Reading coefficient file %s" % args.coef,
 )
 
-coef_npz = np.load(args.coef)
+coef_table = read_resource(args.coef, "coefficient")
+coef_keys = coef_table.files if args.coef.endswith(".npz") else list(coef_table.columns)
 required_coef_arrays = ["featureID"] + (["chalm_coef"] if args.chalm else []) + (["camda_coef"] if args.camda else [])
-missing_coef_arrays = [k for k in required_coef_arrays if k not in coef_npz.files]
+missing_coef_arrays = [k for k in required_coef_arrays if k not in coef_keys]
 if missing_coef_arrays:
     print(
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -244,12 +261,12 @@ if missing_coef_arrays:
     )
     sys.exit(1)
 
-coef_feature_ids = coef_npz["featureID"]
+coef_feature_ids = coef_table["featureID"]
 chalm_coef_by_feature = (
-    dict(zip(coef_feature_ids, coef_npz["chalm_coef"])) if args.chalm else None
+    dict(zip(coef_feature_ids, coef_table["chalm_coef"])) if args.chalm else None
 )
 camda_coef_by_feature = (
-    dict(zip(coef_feature_ids, coef_npz["camda_coef"])) if args.camda else None
+    dict(zip(coef_feature_ids, coef_table["camda_coef"])) if args.camda else None
 )
 
 
@@ -342,9 +359,14 @@ if args.cl:
         "[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "A2H transformation confidence level calculation starts.",
     )
-    cpg_info_npz = np.load(args.cpg_info_path)
+    if args.cpg_info_path.endswith(".npz"):
+        cpg_info_npz = np.load(args.cpg_info_path)
+        info_keys = cpg_info_npz.files
+    else:
+        cpg_info = read_resource(args.cpg_info_path, "CpG info")
+        info_keys = ["featureID"] + list(cpg_info.columns)  # featureID is the index
     missing_info_arrays = [
-        k for k in ["featureID", "betabinom_a", "betabinom_b"] if k not in cpg_info_npz.files
+        k for k in ["featureID", "betabinom_a", "betabinom_b"] if k not in info_keys
     ]
     if missing_info_arrays:
         print(
@@ -352,10 +374,11 @@ if args.cl:
             "Error: CpG info file is missing array(s): %s" % ", ".join(missing_info_arrays),
         )
         sys.exit(1)
-    cpg_info = pd.DataFrame(
-        {k: cpg_info_npz[k] for k in cpg_info_npz.files if k != "featureID"},
-        index=cpg_info_npz["featureID"],
-    )
+    if args.cpg_info_path.endswith(".npz"):
+        cpg_info = pd.DataFrame(
+            {k: cpg_info_npz[k] for k in cpg_info_npz.files if k != "featureID"},
+            index=cpg_info_npz["featureID"],
+        )
     methylation_input_ci = pd.DataFrame(
         Parallel(n_jobs=args.thread, verbose=0, backend="multiprocessing")(
             delayed(A2H_CI)(_) for _ in methylation_input.values
