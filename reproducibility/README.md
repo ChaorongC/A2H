@@ -41,7 +41,8 @@ bash 00_process_wgbs.sh <sample_id> <fastq_dir> <out_dir> hg38.fa <CHALM/src> <s
 1. The two sequencing lanes are concatenated.
 2. Reads are trimmed with Trim Galore 0.6.7 (`--paired --2colour 20 --clip_R1 10
    --clip_R2 20 --three_prime_clip_R1 10 --three_prime_clip_R2 10`).
-3. Reads are aligned to hg38 with BSMAP (`-R`).
+3. Reads are aligned to hg38 with [BASAL](https://github.com/JiejunShi/BASAL)
+   v1.8 (`-M C:T -R`, otherwise default parameters).
 4. Alignments are filtered with `samtools view -F 268`, then sorted and indexed
    (samtools 1.10).
 5. The methylation level and CHALM of each CpG are computed with `CHALM.py trad`
@@ -134,6 +135,6 @@ Steps 1-5 need Python 3 with `numpy`, `pandas`, `scipy`, `scikit-learn`,
 pip install numpy pandas scipy scikit-learn joblib liftover
 ```
 
-Step 0 needs Trim Galore 0.6.7 (with cutadapt), BSMAP, samtools 1.10, samtools
+Step 0 needs Trim Galore 0.6.7 (with cutadapt), BASAL 1.8, samtools 1.10, samtools
 0.1.19 and CHALM. Steps 1-3 load all 205 samples into memory; about 100 GB of
 RAM is enough.
