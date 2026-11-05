@@ -153,14 +153,14 @@ atlas is in [`reproducibility/`](reproducibility/README.md).
 
 ### Model and stored coefficients
 
-For CpG `j` and sample `s` with input methylation level (beta value)
-`m_(j,s)`, A2H predicts CHALM, and separately CAMDA, as
+For CpG $j$ and sample $s$ with input methylation level (beta value)
+$m_{j,s}$, A2H predicts CHALM, and separately CAMDA, as
 
-```text
-ŷ_(j,s) = a_j · m_(j,s)² + b_j · m_(j,s) + c_j
+```math
+\hat{y}_{j,s} = a_j m_{j,s}^2 + b_j m_{j,s} + c_j
 ```
 
-with one set of coefficients `(a_j, b_j, c_j)` per CpG and target. Each CpG's
+with one set of coefficients $(a_j, b_j, c_j)$ per CpG and target. Each CpG's
 coefficients are stored as a length-3 array `[c2, c1, c0] = [a_j, b_j, c_j]`,
 highest power first, as `numpy.polyval(coef, m)` expects. At the 501
 constant-input CpGs (see [Constant-Input CpGs](#constant-input-cpgs)) the stored
