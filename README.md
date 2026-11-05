@@ -169,23 +169,28 @@ array is `[0, 0, c_j]`, so the prediction is the constant `c_j` for any input.
 ### `A2H_coef.pkl` (default) and `A2H_coef.npz`
 
 The per-CpG coefficients for 1,030,653 CpGs. Both files hold identical values.
+Use the `.npz` file for better compatibility across Python package versions and
+easier transport: it loads with NumPy alone, without the pandas and `pyarrow`
+versions the pickle needs.
 
 - `A2H_coef.pkl`: a pandas DataFrame (`pandas.read_pickle`) with one row per
   CpG and columns `featureID` (CpG locus ID), `chalm_coef` and `camda_coef`
-  (each cell a `[c2, c1, c0]` list). See [Requirements](#requirements) for the
+  (each cell a list `[a_j, b_j, c_j]`). See [Requirements](#requirements) for the
   versions needed to load it.
 - `A2H_coef.npz`: a NumPy archive (`numpy.load`) with these arrays:
 
 | Array | dtype, shape | Content |
 | --- | --- | --- |
 | `featureID` | string, `(n,)` | CpG locus ID |
-| `chalm_coef` | float64, `(n, 3)` | CHALM coefficients `[c2, c1, c0]` |
-| `camda_coef` | float64, `(n, 3)` | CAMDA coefficients `[c2, c1, c0]` |
+| `chalm_coef` | float64, `(n, 3)` | CHALM coefficients `[a_j, b_j, c_j]` per CpG |
+| `camda_coef` | float64, `(n, 3)` | CAMDA coefficients `[a_j, b_j, c_j]` per CpG |
 
 ### `A2H_cpg_info.pkl` (default) and `A2H_cpg_info.npz`
 
 Per-CpG summaries of the reference WGBS methylation levels used in training,
-for the same 1,030,653 CpGs. Both files hold identical values.
+for the same 1,030,653 CpGs. Both files hold identical values. As for the
+coefficients, use the `.npz` file for better package compatibility and
+transport.
 
 - `A2H_cpg_info.pkl`: a pandas DataFrame indexed by CpG locus ID (index name
   `loci.hg38`), with the columns below except `featureID`.
